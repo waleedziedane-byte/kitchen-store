@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>نظام مخزن المطبخ السحابي</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<style>
+:root {
+  --bg: #f8fafc; --c: #ffffff; --l: #e2e8f0; --t: #1e293b; --m: #64748b;
+  --p: #1e3a8a; --lg: #2563eb; --ok: #15803d; --bad: #991b1b;
+  box-sizing: border-box;
+}
+@media(prefers-color-scheme:dark){
+  :root{ --bg: #0f172a; --c: #1e293b; --l: #334155; --t: #f8fafc; --m: #94a3b8; --p: #1d4ed8; --lg: #3b82f6; --ok: #16a34a; --bad: #dc2626; }
+}
+*{box-sizing:border-box}[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--t);font-family:'Cairo',Tahoma,sans-serif;font-size:14px}
+header{background:linear-gradient(135deg,var(--p),var(--lg));color:#fff;padding:15px 20px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:5;box-shadow:0 4px 12px rgba(30,58,138,0.2)}
+header b{font-size:18px;font-weight:700}
+header button{background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);color:#fff;border-radius:6px;padding:6px 12px;cursor:pointer;margin-inline-start:8px;transition:background 0.2s}
+header button:hover{background:rgba(255,255,255,0.25)}
+nav{display:flex;gap:8px;padding:12px 20px;background:var(--c);border-bottom:1px solid var(--l);overflow-x:auto;box-shadow:0 2px 5px rgba(0,0,0,0.03)}
+nav button{white-space:nowrap;background:none;border:1px solid var(--l);color:var(--t);border-radius:20px;padding:8px 16px;cursor:pointer;font:inherit;font-weight:600;transition:all 0.2s}
+nav button:hover{border-color:var(--lg);color:var(--lg)}
+nav button.on{background:var(--p);color:#fff;border-color:var(--p);box-shadow:0 3px 8px rgba(30,58,138,0.3)}
+main{padding:20px;max-width:1200px;margin:0 auto}
+.card{background:var(--c);border:1px solid var(--l);border-radius:12px;padding:20px;margin-bottom:20px;box-shadow:0 4px 6px rgba(0,0,0,0.02)}
+.card h3{margin:0 0 15px;font-size:16px;color:var(--p);border-bottom:2px solid var(--l);padding-bottom:10px;font-weight:700}
+.g{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:15px;margin-bottom:15px}
+label{display:flex;flex-direction:column;font-size:12px;color:var(--m);gap:6px;font-weight:600}
+label.ck{flex-direction:row;align-items:center;gap:6px;color:var(--t)}
+input,select{padding:10px 12px;border:1px solid var(--l);border-radius:8px;background:var(--bg);color:var(--t);font:inherit}
+input:focus,select:focus{outline:none;border-color:var(--lg);background:var(--c)}
+.b{background:linear-gradient(135deg,var(--p),var(--lg));color:#fff;border:none;border-radius:8px;padding:10px 20px;cursor:pointer;font:inherit;font-weight:600;margin-inline-end:8px}
+.b-ok{background:linear-gradient(135deg,var(--ok),#166534);color:#fff}
+.r{background:var(--c);border:1px solid var(--bad);color:var(--bad);border-radius:6px;padding:5px 12px;cursor:pointer;font:inherit;font-size:12px}
+.r:hover{background:var(--bad);color:#fff}
+.tw{overflow-x:auto;border:1px solid var(--l);border-radius:8px;background:var(--c)}
+table{border-collapse:collapse;width:100%;min-width:560px}
+th,td{padding:12px 15px;border-bottom:1px solid var(--l);text-align:center;white-space:nowrap}
+th{background:linear-gradient(135deg,var(--p),var(--lg));color:#fff;font-size:13px;font-weight:600}
+tr:hover td{background:rgba(0,0,0,0.02)}
+.tg{padding:4px 10px;border-radius:12px;font-size:11.5px;font-weight:600}
+.tg.ok{background:#dcfce7;color:var(--ok)}
+.tg.bad{background:#fee2e2;color:var(--bad)}
+.lg{height:44px;border-radius:4px}.hl{display:flex;align-items:center;gap:10px}
+#loading{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(255,255,255,0.95);display:flex;justify-content:center;align-items:center;z-index:999;font-size:18px;color:var(--p);flex-direction:column;gap:10px}
+#loading .spinner{width:40px;height:40px;border:4px solid var(--l);border-top:4px solid var(--p);border-radius:50%;animation:spin 1s linear infinite}
+@keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
+@media print{header,nav,.np,.b,.r,#loading{display:none!important}.card{box-shadow:none;border:1px solid #ddd}body{background:#fff}}
+</style>
+</head>
+<body>
+
+<div id="loading"><div class="spinner"></div>جاري الاتصال بالسحابة...</div>
+
+<div id="app" style="display:none">
+<header>
+  <span class="hl"><img class="lg logo" alt="Logo"><b id="hdTitle">نظام مخزن المطبخ</b> <span style="font-size:11px;background:var(--ok);padding:2px 8px;border-radius:10px;margin-right:8px">متصل ☁️</span></span>
+  <span><span id="who">المدير (Admin)</span><button id="langBtn" onclick="toggleLang()" style="margin-inline-end:6px">EN</button></span>
+</header>
+<nav id="nav"></nav>
+<main id="view"></main>
+<footer style="text-align:center;color:var(--m);font-size:11px;padding:16px" id="footerTxt"></footer>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+// ========== مفاتيح Firebase ==========
+const firebaseConfig = {
+  apiKey: "AIzaSyD5-ni_6VEyWYYmT72UeCckD8gVHYGq5WY",
+  authDomain: "kitchenstore-6d1ce.firebaseapp.com",
+  projectId: "kitchenstore-6d1ce",
+  storageBucket: "kitchenstore-6d1ce.firebasestorage.app",
+  messagingSenderId: "382048022893",
+  appId: "1:382048022893:web:429ad2fdcd6f841a24aa64",
+  measurementId: "G-TEX4P42N1H"
+};
+// =====================================
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
+const K="kitchen_v1",$=id=>document.getElementById(id);
+const LOGO="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBAUEBAYFBQUGBgYHCQ4JCQgICRINDQoOFRIWFhUSFBQXGiEcFxgfGRQUHScdHyIjJSUlFhwpLCgkKyEkJST/2wBDAQYGBgkICREJCREkGBQYJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCT/wAARCADBAUADASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9s4";
+document.querySelectorAll(".logo").forEach(i=>i.src=LOGO);
+
+let S = {};
+const defaultS = {
+  items: [], moves: [], recipes: [], employees: [], emp_meals: [],
+  sales: [], sup: [], pay: [], menu: {}, done: {}, seq: 1, cm: "avg",
+  cats: ["خضروات","فواكه","لحوم","دواجن","أسماك","ألبان وبيض","بقالة","زيوت","بقوليات","توابل","مشروبات","ورق فويل","أطباق فويل للتغليف","معالق وشوك بلاستيك","أكواب وعبوات","مواد تنظيف","أخرى"]
+};
+
+let saving = false;
+const save = () => {
+  try { localStorage.setItem(K, JSON.stringify(S)); } catch(e){}
+  if (!saving) {
+    saving = true;
+    db.collection('kitchen_data').doc('main').set(S).then(() => {
+      saving = false;
+    }).catch(e => {
+      console.error("Cloud save error", e);
+      saving = false;
+    });
+  }
+};
+
+const cats = () => [...new Set([...S.cats, ...S.items.map(x=>x.c)])];
+const E = s => String(s||'').replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const UN = {kg:"كجم",g:"جرام",l:"لتر",u:"وحدة"}, TT = {in:"وارد",out:"صرف",adj:"تسوية"};
+const TABS = [["items","الأصناف","Items"],["in","الوارد","Incoming"],["sup","الموردون","Suppliers"],["out","الصرف","Issue"],["menu","المنيو","Menu"],["sales","المبيعات","Sales"],["emp","الموظفين والوجبات","Employees"],["count","الجرد","Count"],["rep","التقارير","Reports"]];
+
+let LANG="ar"; try{LANG=localStorage.getItem("kitchen_lang")||"ar"}catch(e){}
+const t = k => CH[LANG][k] || k;
+
+const CH = {
+ar:{
+  title:"نظام مخزن المطبخ",footer:"نظام سحابي — البيانات مشتركة ومحدثة لحظياً.",
+  add_item:"إضافة صنف",item_name:"اسم الصنف",category:"التصنيف",unit_price:"سعر الوحدة",qty_type:"نوع الكمية",min_limit:"حد الطلب",add:"إضافة",new_category:"+ تصنيف جديد",load_market_prices:"تحميل أسعار السوق",import_excel:"استيراد من إكسل",download_template:"تحميل نموذج إكسل",
+  items_balances:"الأصناف والأرصدة",cost_method:"طريقة حساب التكلفة",avg_cost:"متوسط الشراء",last_cost:"آخر شراء",
+  item:"الصنف",category_s:"التصنيف",unit:"الوحدة",balance:"الرصيد",avg_price:"متوسط السعر",balance_value:"قيمة الرصيد",min_limit_s:"حد الطلب",status:"الحالة",action:"إجراء",edit:"تعديل",
+  low:"منخفض",available:"متوفر",edit_price:"سعر",delete:"حذف",quick_adj:"تعديل الرصيد",save_adj:"حفظ",
+  expired_warning:"⚠️ تنبيه صلاحية",exp_date:"تاريخ الانتهاء",prod_date:"تاريخ الإنتاج",supply_date:"تاريخ التوريد",
+  expired_since:"منتهي منذ",days_left:"باقي",day:"يوم",ok:"جيد",no_data:"لا توجد بيانات",confirm_delete:"حذف؟",
+  enter_item_name:"أدخل اسم الصنف",item_exists:"الصنف موجود بالفعل",new_category_name:"اسم التصنيف الجديد",
+  confirm_load_prices:"سيتم إضافة الأصناف غير الموجودة وتحديث الأسعار. متابعة؟",added:"تمت إضافة",updated:"محدَّث",enter_price:"سعر الوحدة الافتراضي",cannot_delete:"لا يمكن حذف صنف عليه حركات أو في وصفة",
+  new_invoice:"فاتورة توريد جديدة",supplier:"المورد",invoice_date:"تاريخ التوريد",invoice_no:"رقم الفاتورة",add_supplier_first:"أضف الموردين أولاً",
+  supplied_item:"الصنف المورد",qty:"الكمية",unit_price_s:"سعر الوحدة",add_to_invoice:"+ إضافة للفاتورة",total:"الإجمالي",paid_now:"المدفوع الآن",
+  save_invoice:"حفظ الفاتورة وإدخال للمخزن",last_supplies:"آخر التوريدات",user:"المستخدم",
+  add_supplier:"إضافة مورد",supplier_name:"اسم المورد",phone:"الهاتف",address_supply_type:"العنوان / نوع التوريد",add_supplier_btn:"إضافة المورد",
+  record_payment:"تسجيل دفعة للمورد",payment_amount:"المبلغ",payment_date:"التاريخ",payment_method:"طريقة الدفع",cash:"نقدي",bank_transfer:"تحويل",check:"شيك",note:"ملاحظة",record_payment_btn:"تسجيل الدفعة",
+  supplier_accounts:"حسابات الموردين",total_purchases:"إجمالي المشتريات",paid:"المدفوع",due:"المستحق",account_statement:"كشف حساب",
+  statement:"كشف حساب",purchases:"مشتريات",payment_s:"مدفوع",balance_s:"الرصيد",close:"إغلاق",print:"طباعة",
+  issue_from_store:"صرف من المخزن",receiving_party:"الجهة المستلمة",register_issue:"تسجيل الصرف",last_issues:"آخر عمليات الصرف",
+  recipes_dishes:"وصفات الأطباق",dish_name:"اسم الطبق",selling_price:"سعر البيع",ingredient:"المكون",qty_per_portion:"الكمية للحصة",
+  add_ingredient:"+ إضافة مكون",save_recipe:"حفظ الوصفة",no_ingredients:"لم تضف مكونات بعد",dish:"الطبق",ingredients_per_portion:"المكونات للحصة",
+  portion_cost:"تكلفة الحصة",profit_portion:"الربح/الحصة",margin:"الهامش",profit:"ربح",loss:"خسارة",
+  daily_menu_needs:"المنيو اليومي والاحتياجات",menu_date:"تاريخ المنيو",dishes:"الطبق",portions:"عدد الحصص",add_to_menu:"+ إضافة للمنيو",
+  expected_cost:"التكلفة المتوقعة",expected_revenue:"الإيراد المتوقع",expected_profit:"الربح/الخسارة المتوقعة",store_needs:"الاحتياجات من المخزن",
+  required:"المطلوب",required_value:"قيمة المطلوب",available_s:"المتاح",shortage:"العجز",needs_purchase:"يلزم شراء",sufficient:"كافٍ",issue_needs:"صرف الاحتياجات",
+  enter_valid_qty:"أدخل كمية صحيحة",integer_qty:"هذا الصنف بالوحدة — أدخل عددًا صحيحًا",qty_exceeds_balance:"الكمية أكبر من الرصيد المتاح",
+  select_supplier:"اختر المورد",add_at_least_one:"أضف صنفًا واحدًا على الأقل",date_error:"تاريخ الانتهاء لا يمكن أن يسبق تاريخ الإنتاج",
+  enter_valid_amount:"أدخل مبلغًا صحيحًا",delete_payment:"حذف الدفعة؟",delete_supplier:"لا يمكن حذف مورد له حركات",delete_recipe:"حذف الوصفة؟",
+  menu_already_issued:"تم صرف منيو هذا اليوم. صرفه مرة أخرى؟",issue_confirm:"تم صرف الاحتياجات",add_recipes_first:"أضف وصفات أولاً",
+  meal:"الوجبة",qty_s:"العدد",meal_price:"سعر الوجبة",deduct_ingredients:"خصم المكونات من المخزن",register_sale:"تسجيل البيع",
+  today_summary:"ملخص اليوم",revenue:"الإيراد",cost:"التكلفة",net:"الصافي",last_sales:"آخر المبيعات",
+  actual_count:"الجرد الفعلي",enter_actual_qty:"أدخل الكمية الفعلية لتسوية الفروق. الأصناف الفارغة لا تتغير.",
+  system_balance:"رصيد النظام",actual_qty:"الكمية الفعلية",difference:"الفرق",approve_count:"اعتماد الجرد",print_count_sheet:"طباعة ورقة الجرد",count_approved:"تم اعتماد الجرد وتسوية",
+  report_type:"نوع التقرير",from_date:"من تاريخ",to_date:"إلى تاريخ",generate_report:"عرض التقرير",
+  rep_items:"تقرير الأصناف والأرصدة",rep_in:"تقرير الوارد",rep_out:"تقرير الصرف",rep_sales:"تقرير المبيعات",
+  rep_sup:"تقرير الموردين",rep_menu:"تقرير المنيو اليومي",rep_emp:"تقرير وجبات الموظفين",rep_count:"تقرير تسويات الجرد",
+  emp_tab:"الموظفين وخصم الوجبات",add_emp:"إضافة موظف",emp_name:"اسم الموظف",emp_dept:"الإدارة / القسم",
+  meals_deductions:"سجل الوجبات والخصومات", select_month:"اختر الشهر",
+  emp_dept_filter:"تصفية حسب الإدارة", all_depts:"كل الإدارات", log_meal_btn:"+ تسجيل وجبة", log_meal_for:"تسجيل وجبة لـ", cancel:"إلغاء", export_excel:"تحميل التقرير كإكسل",
+  log_meal:"تسجيل وجبة يومية",search_emp:"بحث عن موظف بالاسم أو الإدارة...",select_emp:"اختر الموظف",meal_date:"التاريخ",meals_count:"عدد الوجبات",price_per_meal:"سعر الوجبة",total_deduction:"إجمالي الخصم",
+  save_meal_log:"حفظ خصم الوجبة",recent_deductions:"آخر خصومات الوجبات",
+  monthly_report:"تقرير الخصومات الشهري",emp_monthly_total:"إجمالي خصم الموظف خلال الشهر",
+  import_emp_excel:"استيراد موظفين من إكسل",download_emp_template:"تحميل نموذج موظفين",emp_import_info:"ترتيب الأعمدة: الاسم — الإدارة. أول صف عناوين ويُتجاهل.",
+  no_employees:"لا يوجد موظفون مسجلون. أضف موظفين يدوياً أو استوردهم من ملف إكسل.",no_meals:"لا توجد وجبات مسجلة.",
+  emp_exists:"اسم الموظف موجود بالفعل",emp_imported:"تم استيراد",emp_new:"موظف جديد",emp_updated:"محدَّث"
+},
+en:{
+  title:"Kitchen Store System",footer:"Cloud system — data is shared and updated in real-time.",
+  add_item:"Add Item",item_name:"Item Name",category:"Category",unit_price:"Unit Price",qty_type:"Qty Type",min_limit:"Min Limit",add:"Add",new_category:"+ New Category",load_market_prices:"Load Market Prices",import_excel:"Import from Excel",download_template:"Download Template",
+  items_balances:"Items & Balances",cost_method:"Cost Method",avg_cost:"Avg Purchase",last_cost:"Last Purchase",
+  item:"Item",category_s:"Category",unit:"Unit",balance:"Balance",avg_price:"Avg Price",balance_value:"Balance Value",min_limit_s:"Min Limit",status:"Status",action:"Action",edit:"Edit",
+  low:"Low",available:"Available",edit_price:"Price",delete:"Delete",quick_adj:"Quick Adjust",save_adj:"Save",
+  expired_warning:"⚠️ Expiry Alert",exp_date:"Exp. Date",prod_date:"Prod. Date",supply_date:"Supply Date",
+  expired_since:"Expired since",days_left:"days left",day:"day",ok:"OK",no_data:"No data",confirm_delete:"Delete?",
+  enter_item_name:"Enter item name",item_exists:"Item exists",new_category_name:"New category name",
+  confirm_load_prices:"Add missing items and update prices. Continue?",added:"Added",updated:"Updated",enter_price:"Default unit price",cannot_delete:"Cannot delete item with movements or in recipe",
+  new_invoice:"New Supply Invoice",supplier:"Supplier",invoice_date:"Supply Date",invoice_no:"Invoice No.",add_supplier_first:"Add suppliers first",
+  supplied_item:"Supplied Item",qty:"Quantity",unit_price_s:"Unit Price",add_to_invoice:"+ Add to Invoice",total:"Total",paid_now:"Paid Now",
+  save_invoice:"Save Invoice & Add to Store",last_supplies:"Last Supplies",user:"User",
+  add_supplier:"Add Supplier",supplier_name:"Supplier Name",phone:"Phone",address_supply_type:"Address / Type",add_supplier_btn:"Add Supplier",
+  record_payment:"Record Payment",payment_amount:"Amount",payment_date:"Date",payment_method:"Method",cash:"Cash",bank_transfer:"Transfer",check:"Check",note:"Note",record_payment_btn:"Record",
+  supplier_accounts:"Supplier Accounts",total_purchases:"Total Purchases",paid:"Paid",due:"Due",account_statement:"Statement",
+  statement:"Statement",purchases:"Purchases",payment_s:"Payment",balance_s:"Balance",close:"Close",print:"Print",
+  issue_from_store:"Issue from Store",receiving_party:"Receiving Party",register_issue:"Register Issue",last_issues:"Last Issues",
+  recipes_dishes:"Dish Recipes",dish_name:"Dish Name",selling_price:"Selling Price",ingredient:"Ingredient",qty_per_portion:"Qty per Portion",
+  add_ingredient:"+ Add Ingredient",save_recipe:"Save Recipe",no_ingredients:"No ingredients yet",dish:"Dish",ingredients_per_portion:"Ingredients",
+  portion_cost:"Portion Cost",profit_portion:"Profit/Portion",margin:"Margin",profit:"Profit",loss:"Loss",
+  daily_menu_needs:"Daily Menu & Needs",menu_date:"Menu Date",dishes:"Dish",portions:"Portions",add_to_menu:"+ Add to Menu",
+  expected_cost:"Expected Cost",expected_revenue:"Expected Revenue",expected_profit:"Expected Profit/Loss",store_needs:"Store Needs",
+  required:"Required",required_value:"Required Value",available_s:"Available",shortage:"Shortage",needs_purchase:"Needs Purchase",sufficient:"Sufficient",issue_needs:"Issue Needs",
+  enter_valid_qty:"Enter valid quantity",integer_qty:"Item is by unit — enter whole number",qty_exceeds_balance:"Quantity exceeds balance",
+  select_supplier:"Select supplier",add_at_least_one:"Add at least one item",date_error:"Exp. date cannot be before prod. date",
+  enter_valid_amount:"Enter valid amount",delete_payment:"Delete payment?",delete_supplier:"Cannot delete supplier with movements",delete_recipe:"Delete recipe?",
+  menu_already_issued:"Menu already issued. Issue again?",issue_confirm:"Needs issued",add_recipes_first:"Add recipes first",
+  meal:"Meal",qty_s:"Qty",meal_price:"Meal Price",deduct_ingredients:"Deduct ingredients",register_sale:"Register Sale",
+  today_summary:"Today's Summary",revenue:"Revenue",cost:"Cost",net:"Net",last_sales:"Last Sales",
+  actual_count:"Actual Count",enter_actual_qty:"Enter actual qty to adjust. Blank items unchanged.",
+  system_balance:"System Balance",actual_qty:"Actual Qty",difference:"Difference",approve_count:"Approve Count",print_count_sheet:"Print Sheet",count_approved:"Count approved",
+  report_type:"Report Type",from_date:"From Date",to_date:"To Date",generate_report:"Generate Report",
+  rep_items:"Items & Stock Report",rep_in:"Incoming Report",rep_out:"Issue Report",rep_sales:"Sales Report",
+  rep_sup:"Suppliers Report",rep_menu:"Daily Menu Report",rep_emp:"Employee Meals Report",rep_count:"Inventory Count Report",
+  emp_tab:"Employees & Meals",add_emp:"Add Employee",emp_name:"Employee Name",emp_dept:"Department",
+  meals_deductions:"Meals & Deductions", select_month:"Select Month",
+  emp_dept_filter:"Filter by Department", all_depts:"All Departments", log_meal_btn:"+ Log Meal", log_meal_for:"Log Meal for", cancel:"Cancel", export_excel:"Download Report as Excel",
+  log_meal:"Log Daily Meal",search_emp:"Search employee by name or dept...",select_emp:"Select Employee",meal_date:"Date",meals_count:"Meals Count",price_per_meal:"Price per Meal",total_deduction:"Total Deduction",
+  save_meal_log:"Save Meal Deduction",recent_deductions:"Recent Meal Deductions",
+  monthly_report:"Monthly Deduction Report",emp_monthly_total:"Employee Monthly Total",
+  import_emp_excel:"Import Employees from Excel",download_emp_template:"Download Employees Template",emp_import_info:"Column order: Name — Department. First row is headers.",
+  no_employees:"No employees registered. Add manually or import from Excel.",no_meals:"No meals logged.",
+  emp_exists:"Employee name already exists",emp_imported:"Imported",emp_new:"new employees",emp_updated:"updated"
+}
+};
+
+function toggleLang(){LANG=LANG=="ar"?"en":"ar";try{localStorage.setItem("kitchen_lang",LANG)}catch(e){}applyLang();go();}
+function applyLang(){const d=document.documentElement;d.dir=LANG=="ar"?"rtl":"ltr";d.lang=LANG;
+$("hdTitle").textContent=t('title');$("langBtn").textContent=LANG=="ar"?"EN":"AR";$("footerTxt").textContent=t('footer');}
+
+const today=()=>new Date(Date.now()-new Date().getTimezoneOffset()*6e4).toISOString().slice(0,10);
+const fx=n=>String(Math.round(n*1000)/1000);
+const it=id=>S.items.find(x=>x.id==id);
+const stock=id=>S.moves.reduce((a,m)=>m.i==id?a+m.q:a,0);
+const nm=id=>it(id)?E(it(id).name):t('delete');
+const un=id=>it(id)?(LANG=="ar"?UN[it(id).u]:(it(id).u=="kg"?"kg":it(id).u=="g"?"g":it(id).u=="l"?"L":"unit")):"";
+function daysLeft(ed){if(!ed)return null;return Math.round((new Date(ed)-new Date(today()))/864e5)}
+function expBadge(ed){if(!ed)return "-";const d=daysLeft(ed);if(d<0)return `<span class="tg bad">${t('expired_since')} ${-d} ${t('day')}</span>`;if(d<=7)return `<span class="tg bad">${ed} — ${t('days_left')} ${d} ${t('day')}</span>`;if(d<=30)return `<span class="tg" style="background:#fff3cd;color:#8a6500">${ed} — ${t('days_left')} ${d} ${t('day')}</span>`;return `<span class="tg ok">${ed}</span>`}
+function expBatches(){return S.moves.filter(m=>m.t=="in"&&m.ed).map(m=>({...m,dl:daysLeft(m.ed)})).sort((a,b)=>a.dl-b.dl)}
+const cost=id=>{let q=0,v=0,l=0;S.moves.forEach(m=>{if(m.i==id&&m.t=="in"&&m.p>0){q+=m.q;v+=m.q*m.p;l=m.p}});return q?(S.cm=="last"?l:v/q):(it(id)?+it(id).p||0:0)};
+
+const lineCost=l=>{
+  const item=it(l.i);
+  const baseCost=cost(l.i);
+  const u = l.unit || (item ? item.u : 'kg');
+  if(u === 'g') { return (l.q / 1000) * baseCost; }
+  return l.q * baseCost;
+};
+const rcost=r=>r.lines.reduce((a,l)=>a+lineCost(l),0);
+
+const $f=n=>(Math.round(n*100)/100).toLocaleString("en");
+const clr=g=>g>=0?"var(--ok)":"var(--bad)";
+let tab="items",tmp=[],tmpRecipe=[],tmpN="",tmpP="",md=today(),rt="items",rf="",rto="";
+const tbl=(h,r)=>`<div class="tw"><table><thead><tr>${h.map(x=>`<th>${x}</th>`).join("")}</tr></thead><tbody>${r.length?r.map(a=>`<tr>${a.map(c=>`<td>${c}</td>`).join("")}</tr>`).join(""):`<tr><td colspan="${h.length}">${t('no_data')}</td></tr>`}</tbody></table></div>`;
+const opts=w=>S.items.map(x=>`<option value="${x.id}">${E(x.name)} (${LANG=="ar"?UN[x.u]:(x.u=="kg"?"kg":x.u=="g"?"g":x.u=="l"?"L":"unit")})${w?" — "+t('balance')+" "+fx(stock(x.id)):""}</option>`).join("");
+const noItems=()=>`<div class="card">${LANG=="ar"?"أضف أصنافًا أولاً.":"Add items first."}</div>`;
+function mv(i,t,q,n,d,p){S.moves.push({i:+i,d:d||today(),t,q,n:n||"",b:"Admin",p:p||0}); save();}
+function qv(i,idq){const x=it(i),q=+$(idq).value;if(!(q>0)){alert(t('enter_valid_qty'));return 0}if(x.u=="u"&&!Number.isInteger(q)){alert(t('integer_qty'));return 0}return q}
+
+/* ---------- الأصناف ---------- */
+function vItems(){
+  const ex=expBatches().filter(b=>b.dl<=7);
+  return `${ex.length?`<div class="card np" style="border-color:var(--bad)"><h3 style="color:var(--bad)">${t('expired_warning')} (${ex.length})</h3>${tbl([t('item'),t('qty'),t('supply_date'),t('exp_date'),t('status')],ex.map(b=>[nm(b.i),fx(b.q),b.d,b.ed,expBadge(b.ed)]))}</div>`:""}
+<div class="card np"><h3>${t('add_item')}</h3><div class="g">
+<label>${t('item_name')}<input id="a_n"></label>
+<label>${t('category')}<select id="a_c">${cats().map(c=>`<option>${E(c)}</option>`).join("")}</select></label>
+<label>${t('unit_price')}<input id="a_p" type="number" step="any" min="0" value="0"></label>
+<label>${t('qty_type')}<select id="a_u"><option value="kg">${LANG=="ar"?"وزن (كجم)":"Weight (kg)"}</option><option value="g">${LANG=="ar"?"وزن (جرام)":"Weight (g)"}</option><option value="l">${LANG=="ar"?"حجم (لتر)":"Volume (L)"}</option><option value="u">${LANG=="ar"?"عدد (وحدة)":"Count (unit)"}</option></select></label>
+<label>${t('min_limit')}<input id="a_m" type="number" step="any" value="0"></label></div>
+<button class="b" onclick="addItem()">${t('add')}</button><button class="b" onclick="addCat()">${t('new_category')}</button><button class="b" onclick="loadCat()">${t('load_market_prices')}</button>
+<label class="np" style="display:inline-flex;flex-direction:column;font-size:12px;color:var(--m);gap:4px;vertical-align:middle">${t('import_excel')}<input type="file" id="xf" accept=".xlsx,.xls" onchange="importXlsx(this)"></label>
+<button class="b np" onclick="xlsxTemplate()">${t('download_template')}</button></div>
+<div class="card"><h3>${t('items_balances')}</h3><p style="font-size:12px;color:var(--m)">${t('cost_method')}: <select onchange="S.cm=this.value;save();go()"><option value="avg" ${S.cm!="last"?"selected":""}>${t('avg_cost')}</option><option value="last" ${S.cm=="last"?"selected":""}>${t('last_cost')}</option></select></p>${tbl([t('item'),t('category_s'),t('unit'),t('balance'),t('avg_price'),t('balance_value'),t('min_limit_s'),t('status'),t('action')],S.items.map(x=>{const st=stock(x.id),c=cost(x.id),f=x.m>0&&st<x.m;return[E(x.name),E(x.c),LANG=="ar"?UN[x.u]:x.u,fx(st),$f(c),$f(st*c),x.m||0,f?`<span class="tg bad">${t('low')}</span>`:`<span class="tg ok">${t('available')}</span>`,`<button class="r" onclick="pPrice(${x.id})">${t('edit_price')}</button> <button class="r" onclick="delItem(${x.id})">${t('delete')}</button>`]}))}</div>
+<div class="card np"><h3>${t('quick_adj')}</h3><div class="g"><label>${t('item')}<select id="q_i">${opts(1)}</select></label><label>${t('qty')}<input id="q_q" type="number" step="any"></label><label>${t('note')}<input id="q_n"></label></div><button class="b" onclick="qAdj()">${t('save_adj')}</button></div>`;
+}
+
+function addItem(){
+  const n=$("a_n").value.trim();if(!n){alert(t('enter_item_name'));return}
+  if(S.items.some(x=>x.name.toLowerCase()===n.toLowerCase())){alert(t('item_exists'));return}
+  S.items.push({id:S.seq++,name:n,c:$("a_c").value,u:$("a_u").value,p:+$("a_p").value||0,m:+$("a_m").value||0});
+  save();go();
+}
+function addCat(){const c=prompt(t('new_category_name'));if(c&&!S.cats.includes(c)){S.cats.push(c);save();go()}}
+function pPrice(id){const x=it(id),p=prompt(t('enter_price'),x.p||0);if(p!==null){x.p=+p||0;save();go()}}
+function delItem(id){if(S.moves.some(m=>m.i==id)||S.recipes.some(r=>r.lines.some(l=>l.i==id))){alert(t('cannot_delete'));return}if(confirm(t('confirm_delete'))){S.items=S.items.filter(x=>x.id!=id);save();go()}}
+function qAdj(){const i=+$("q_i").value,x=it(i),st=stock(i),q=+$("q_q").value;if(isNaN(q)){alert(t('enter_valid_qty'));return}const diff=q-st;if(diff!==0){mv(i,"adj",diff,$("q_n").value.trim()||TT.adj);save();go()}}
+
+/* ---------- الوارد ---------- */
+function vIn(){
+  if(!S.items.length)return noItems();
+  return `<div class="card np"><h3>${t('new_invoice')}</h3><div class="g">
+  <label>${t('supplier')}<select id="i_s">${S.sup.length?S.sup.map(s=>`<option value="${s.id}">${E(s.n)}</option>`).join(""):`<option value="">${t('add_supplier_first')}</option>`}</select></label>
+  <label>${t('invoice_date')}<input id="i_d" type="date" value="${today()}"></label>
+  <label>${t('invoice_no')}<input id="i_no"></label></div>
+  <div style="background:var(--bg);padding:10px;border-radius:8px;margin-bottom:10px"><div class="g">
+  <label>${t('supplied_item')}<select id="i_i">${opts()}</select></label>
+  <label>${t('qty')}<input id="i_q" type="number" step="any"></label>
+  <label>${t('unit_price_s')}<input id="i_p" type="number" step="any"></label>
+  <label>${t('prod_date')}<input id="i_pd" type="date"></label>
+  <label>${t('exp_date')}<input id="i_ed" type="date"></label></div>
+  <button class="b" onclick="addInLine()">${t('add_to_invoice')}</button></div>
+  ${tbl([t('item'),t('qty'),t('unit_price_s'),t('total'),t('prod_date'),t('exp_date'),t('action')],tmp.map((l,idx)=>[nm(l.i),fx(l.q),$f(l.p),$f(l.q*l.p),l.pd||"-",expBadge(l.ed),`<button class="r" onclick="tmp.splice(${idx},1);go()">${t('delete')}</button>`]))}
+  <div style="margin-top:10px;display:flex;gap:15px;align-items:center;flex-wrap:wrap">
+  <b>${t('total')}: ${$f(tmp.reduce((a,l)=>a+l.q*l.p,0))}</b>
+  <label style="flex-direction:row;align-items:center;gap:6px">${t('paid_now')}: <input id="i_paid" type="number" step="any" value="${tmp.reduce((a,l)=>a+l.q*l.p,0)}" style="width:100px"></label>
+  <button class="b" onclick="saveIn()">${t('save_invoice')}</button></div></div>
+  <div class="card"><h3>${t('last_supplies')}</h3>${tbl([t('supply_date'),t('supplier'),t('invoice_no'),t('item'),t('qty'),t('unit_price_s'),t('total'),t('exp_date'),t('user')],S.moves.filter(m=>m.t=="in").slice(-15).reverse().map(m=>[m.d,E((S.sup.find(s=>s.id==m.sid)||{}).n||"-"),m.inv||"-",nm(m.i),fx(m.q),$f(m.p),$f(m.q*m.p),expBadge(m.ed),E(m.b||"-")]))}</div>`;
+}
+
+function addInLine(){const i=+$("i_i").value,q=qv(i,"i_q"),p=+$("i_p").value,pd=$("i_pd").value,ed=$("i_ed").value;if(!q)return;if(pd&&ed&&ed<pd){alert(t('date_error'));return}tmp.push({i,q,p:p>=0?p:cost(i),pd,ed});$("i_q").value="";$("i_p").value="";go();}
+function saveIn(){if(!tmp.length){alert(t('add_at_least_one'));return}const sid=+$("i_s").value,d=$("i_d").value,inv=$("i_no").value.trim(),paid=+$("i_paid").value||0;tmp.forEach(l=>{S.moves.push({i:l.i,d,t:"in",q:l.q,p:l.p,pd:l.pd,ed:l.ed,sid,inv,b:"Admin"});const x=it(l.i);if(x)x.p=l.p;});if(paid>0&&sid){S.pay.push({id:S.seq++,sid,d,a:paid,m:"cash",n:inv?`فاتورة ${inv}`:""})}tmp=[];save();go();}
+
+/* ---------- الموردون ---------- */
+function vSup(){
+  return `<div class="card np"><h3>${t('add_supplier')}</h3><div class="g">
+  <label>${t('supplier_name')}<input id="s_n"></label>
+  <label>${t('phone')}<input id="s_p"></label>
+  <label>${t('address_supply_type')}<input id="s_a"></label></div>
+  <button class="b" onclick="addSup()">${t('add_supplier_btn')}</button></div>
+  <div class="card np"><h3>${t('record_payment')}</h3><div class="g">
+  <label>${t('supplier')}<select id="p_s">${S.sup.map(s=>`<option value="${s.id}">${E(s.n)}</option>`).join("")}</select></label>
+  <label>${t('payment_amount')}<input id="p_a" type="number" step="any"></label>
+  <label>${t('payment_date')}<input id="p_d" type="date" value="${today()}"></label>
+  <label>${t('payment_method')}<select id="p_m"><option value="cash">${t('cash')}</option><option value="bank">${t('bank_transfer')}</option><option value="check">${t('check')}</option></select></label>
+  <label>${t('note')}<input id="p_n"></label></div>
+  <button class="b" onclick="addPay()">${t('record_payment_btn')}</button></div>
+  <div class="card"><h3>${t('supplier_accounts')}</h3>${tbl([t('supplier_name'),t('phone'),t('total_purchases'),t('paid'),t('due'),t('action')],S.sup.map(s=>{const pur=S.moves.filter(m=>m.t=="in"&&m.sid==s.id).reduce((a,m)=>a+m.q*m.p,0);const pd=S.pay.filter(p=>p.sid==s.id).reduce((a,p)=>a+p.a,0);return[E(s.n),E(s.p||"-"),$f(pur),$f(pd),`<b style="color:${clr(pd-pur)}">${$f(pur-pd)}</b>`,`<button class="b" onclick="stmt(${s.id})">${t('account_statement')}</button> <button class="r" onclick="delSup(${s.id})">${t('delete')}</button>`];}))}</div>`;
+}
+
+function addSup(){const n=$("s_n").value.trim();if(!n)return;S.sup.push({id:S.seq++,n,p:$("s_p").value.trim(),a:$("s_a").value.trim()});save();go();}
+function addPay(){const sid=+$("p_s").value,a=+$("p_a").value;if(!sid||!(a>0)){alert(t('enter_valid_amount'));return}S.pay.push({id:S.seq++,sid,d:$("p_d").value,a,m:$("p_m").value,n:$("p_n").value.trim()});save();go();}
+function delSup(id){if(S.moves.some(m=>m.sid==id)||S.pay.some(p=>p.sid==id)){alert(t('delete_supplier'));return}if(confirm(t('confirm_delete'))){S.sup=S.sup.filter(s=>s.id!=id);save();go()}}
+function stmt(sid){const s=S.sup.find(x=>x.id==sid);if(!s)return;const list=[...S.moves.filter(m=>m.t=="in"&&m.sid==sid).map(m=>({d:m.d,t:t('purchases')+" ("+(m.inv||"-")+")",a:m.q*m.p,c:"bad"})),...S.pay.filter(p=>p.sid==sid).map(p=>({d:p.d,t:t('payment_s')+" ("+(p.n||p.m)+")",a:-p.a,c:"ok"}))].sort((a,b)=>a.d.localeCompare(b.d));let bal=0;const rows=list.map(x=>{bal+=x.c=="bad"?x.a:-Math.abs(x.a);return[x.d,E(x.t),x.c=="bad"?$f(x.a):"-",x.c=="ok"?$f(Math.abs(x.a)):"-",$f(bal)]});const win=window.open("","_blank");win.document.write(`<html dir="${LANG=="ar"?"rtl":"ltr"}"><head><title>${t('statement')} - ${E(s.n)}</title><style>body{font-family:sans-serif;padding:20px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ccc;padding:8px;text-align:center}th{background:#f0f0f0}</style></head><body><h2>${t('statement')}: ${E(s.n)}</h2><p>${t('phone')}: ${E(s.p||"-")}</p><table><thead><tr><th>${t('payment_date')}</th><th>${t('note')}</th><th>${t('purchases')}</th><th>${t('paid')}</th><th>${t('balance_s')}</th></tr></thead><tbody>${rows.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join("")}</tr>`).join("")}</tbody></table><p><b>${t('due')}: ${$f(bal)}</b></p><button onclick="window.print()">${t('print')}</button></body></html>`);}
+
+/* ---------- الصرف ---------- */
+function vOut(){if(!S.items.length)return noItems();return `<div class="card np"><h3>${t('issue_from_store')}</h3><div class="g">
+  <label>${t('item')}<select id="o_i">${opts(1)}</select></label>
+  <label>${t('qty')}<input id="o_q" type="number" step="any"></label>
+  <label>${t('receiving_party')}<input id="o_r" placeholder="المطبخ / الكافيه..."></label>
+  <label>${t('note')}<input id="o_n"></label></div>
+  <button class="b" onclick="doOut()">${t('register_issue')}</button></div>
+  <div class="card"><h3>${t('last_issues')}</h3>${tbl([t('payment_date'),t('item'),t('qty'),t('receiving_party'),t('note'),t('user')],S.moves.filter(m=>m.t=="out").slice(-15).reverse().map(m=>[m.d,nm(m.i),fx(Math.abs(m.q)),E(m.r||"-"),E(m.n||"-"),E(m.b||"-")]))}</div>`;}
+
+function doOut(){const i=+$("o_i").value,q=qv(i,"o_q");if(!q)return;if(q>stock(i)){alert(t('qty_exceeds_balance'));return}S.moves.push({i,d:today(),t:"out",q:-q,r:$("o_r").value.trim(),n:$("o_n").value.trim(),b:"Admin"});save();go();}
+
+/* ---------- المنيو ---------- */
+function vMenu(){return `<div class="card np"><h3>${t('recipes_dishes')}</h3><div class="g">
+  <label>${t('dish_name')}<input id="r_n" value="${E(tmpN)}"></label>
+  <label>${t('selling_price')}<input id="r_p" type="number" step="any" value="${tmpP}"></label></div>
+  <div style="background:var(--bg);padding:10px;border-radius:8px;margin-bottom:10px"><div class="g">
+  <label>${t('ingredient')}<select id="r_i" onchange="updateRUnit()">${opts()}</select></label>
+  <label>${t('qty_per_portion')}<input id="r_q" type="number" step="any"></label>
+  <label>${t('unit')}<select id="r_u"><option value="kg">كيلو جرام</option><option value="g">جرام</option><option value="l">لتر</option><option value="u">وحدة</option></select></label></div>
+  <button class="b" onclick="addRline()">${t('add_ingredient')}</button></div>
+  ${tmpRecipe.length?tbl([t('ingredient'),t('qty'),t('unit'),t('portion_cost'),t('action')],tmpRecipe.map((l,idx)=>[nm(l.i),fx(l.q),UN[l.unit]||l.unit,$f(lineCost(l)),`<button class="r" onclick="editRline(${idx})">${t('edit')}</button> <button class="r" onclick="tmpRecipe.splice(${idx},1);go()">${t('delete')}</button>`])):`<p style="color:var(--m)">${t('no_ingredients')}</p>`}
+  <div style="margin-top:10px"><button class="b" onclick="saveRecipe()">${t('save_recipe')}</button></div></div>
+  <div class="card"><h3>${t('recipes_dishes')}</h3>${tbl([t('dish'),t('selling_price'),t('portion_cost'),t('profit_portion'),t('margin'),t('ingredients_per_portion'),t('action')],S.recipes.map(r=>{const c=rcost(r),p=r.price-c,m=r.price?((p/r.price)*100).toFixed(1):0;return[E(r.name),$f(r.price),$f(c),`<b style="color:${clr(p)}">${$f(p)}</b>`,`${m}%`,r.lines.map(l=>`${nm(l.i)} (${fx(l.q)}${UN[l.unit]||l.unit})`).join("، "),`<button class="r" onclick="delRecipe(${r.id})">${t('delete')}</button>`];}))}</div>
+  <div class="card np"><h3>${t('daily_menu_needs')}</h3>
+  <div class="g"><label>${t('menu_date')}<input id="m_d" type="date" value="${md}" onchange="md=this.value;go()"></label></div>
+  <div style="background:var(--bg);padding:10px;border-radius:8px;margin-bottom:10px"><div class="g">
+  <label>${t('dishes')}<select id="m_r">${S.recipes.map(r=>`<option value="${r.id}">${E(r.name)}</option>`).join("")}</select></label>
+  <label>${t('portions')}<input id="m_q" type="number" min="1" value="10"></label></div>
+  <button class="b" onclick="addMenu()">${t('add_to_menu')}</button></div>
+  ${vMenuTable()}</div>`;}
+
+function updateRUnit(){const item=it(+$("r_i").value);if(item){if(item.u==='kg'||item.u==='g')$("r_u").value='g';else $("r_u").value=item.u;}}
+function addRline(){tmpN=$("r_n").value.trim();tmpP=$("r_p").value;const i=+$("r_i").value,q=+$("r_q").value,u=$("r_u").value;if(!(q>0)){alert(t('enter_valid_qty'));return}tmpRecipe.push({i,q,unit:u});$("r_q").value="";go();}
+function editRline(idx){const line=tmpRecipe[idx];$("r_i").value=line.i;$("r_q").value=line.q;$("r_u").value=line.unit;updateRUnit();tmpRecipe.splice(idx,1);go();}
+function saveRecipe(){const name=($("r_n").value||tmpN).trim(),price=+($("r_p").value||tmpP)||0;if(!name||!tmpRecipe.length){alert(t('add_at_least_one'));return}S.recipes.push({id:S.seq++,name,price,lines:[...tmpRecipe]});tmpRecipe=[];tmpN="";tmpP="";save();go();}
+function delRecipe(id){if(confirm(t('delete_recipe'))){S.recipes=S.recipes.filter(r=>r.id!=id);save();go()}}
+function addMenu(){const rid=+$("m_r").value,q=+$("m_q").value;if(!rid||!(q>0))return;if(!S.menu[md])S.menu[md]=[];const ex=S.menu[md].find(x=>x.rid==rid);if(ex)ex.q+=q;else S.menu[md].push({rid,q});save();go();}
+function vMenuTable(){const list=S.menu[md]||[];if(!list.length)return `<p style="color:var(--m)">${t('no_data')}</p>`;let totC=0,totR=0;const itemsNeeded={};list.forEach(m=>{const r=S.recipes.find(x=>x.id==m.rid);if(!r)return;totC+=rcost(r)*m.q;totR+=r.price*m.q;r.lines.forEach(l=>{const u=l.unit||(it(l.i)?it(l.i).u:'kg');const reqQty=(u==='g')?(l.q/1000)*m.q:l.q*m.q;itemsNeeded[l.i]=(itemsNeeded[l.i]||0)+reqQty;});});const needRows=Object.keys(itemsNeeded).map(id=>{const req=itemsNeeded[id],st=stock(id),c=cost(id),diff=st-req,short=diff<0?-diff:0;return[nm(id),fx(req),un(id),$f(req*c),fx(st),short>0?`<b style="color:var(--bad)">${fx(short)}</b>`:"0",short>0?`<span class="tg bad">${t('needs_purchase')}</span>`:`<span class="tg ok">${t('sufficient')}</span>`];});return `<h4>${t('dishes')}</h4>${tbl([t('dish'),t('portions'),t('portion_cost'),t('total'),t('action')],list.map((m,idx)=>{const r=S.recipes.find(x=>x.id==m.rid)||{};return[E(r.name||""),m.q,$f(rcost(r)),$f(rcost(r)*m.q),`<button class="r" onclick="S.menu['${md}'].splice(${idx},1);save();go()">${t('delete')}</button>`];}))}<div style="margin:15px 0"><b>${t('expected_cost')}: ${$f(totC)} | ${t('expected_revenue')}: ${$f(totR)} | ${t('expected_profit')}: <span style="color:${clr(totR-totC)}">${$f(totR-totC)}</span></b></div><h4>${t('store_needs')}</h4>${tbl([t('item'),t('required'),t('unit'),t('required_value'),t('available_s'),t('shortage'),t('status')],needRows)}<div style="margin-top:15px"><button class="b b-ok" onclick="issueMenu('${md}')">${t('issue_needs')}</button></div>`;}
+function issueMenu(d){const list=S.menu[d]||[];if(!list.length)return;if(S.done[d]&&!confirm(t('menu_already_issued')))return;list.forEach(m=>{const r=S.recipes.find(x=>x.id==m.rid);if(!r)return;r.lines.forEach(l=>{const u=l.unit||(it(l.i)?it(l.i).u:'kg');const reqQty=(u==='g')?(l.q/1000)*m.q:l.q*m.q;S.moves.push({i:l.i,d,t:"out",q:-reqQty,r:`منيو ${d}: ${r.name}`,b:"Admin"});});});S.done[d]=true;save();alert(t('issue_confirm'));go();}
+
+/* ---------- المبيعات ---------- */
+function vSales(){if(!S.recipes.length)return `<div class="card">${t('add_recipes_first')}</div>`;const todaySales=S.sales.filter(s=>s.d==today());const rev=todaySales.reduce((a,s)=>a+s.tot,0),cst=todaySales.reduce((a,s)=>a+s.cost,0);return `<div class="card np"><h3>${t('register_sale')}</h3><div class="g">
+  <label>${t('meal')}<select id="sa_r">${S.recipes.map(r=>`<option value="${r.id}">${E(r.name)} - ${$f(r.price)}</option>`).join("")}</select></label>
+  <label>${t('qty_s')}<input id="sa_q" type="number" min="1" value="1"></label>
+  <label>${t('meal_price')}<input id="sa_p" type="number" step="any"></label>
+  <label class="ck" style="margin-top:20px"><input id="sa_ded" type="checkbox" checked> ${t('deduct_ingredients')}</label></div>
+  <button class="b" onclick="doSale()">${t('register_sale')}</button></div>
+  <div class="card"><h3>${t('today_summary')} (${today()})</h3>
+  <p><b>${t('revenue')}: ${$f(rev)} | ${t('cost')}: ${$f(cst)} | ${t('net')}: <span style="color:${clr(rev-cst)}">${$f(rev-cst)}</span></b></p>
+  <h4>${t('last_sales')}</h4>${tbl([t('payment_date'),t('dish'),t('qty_s'),t('meal_price'),t('total'),t('cost'),t('net'),t('user')],S.sales.slice(-15).reverse().map(s=>[s.d,E(s.rn),s.q,$f(s.p),$f(s.tot),$f(s.cost),`<b style="color:${clr(s.tot-s.cost)}">${$f(s.tot-s.cost)}</b>`,E(s.b||"-")]))}</div>`;}
+
+function doSale(){const rid=+$("sa_r").value,q=+$("sa_q").value;if(!rid||!(q>0))return;const r=S.recipes.find(x=>x.id==rid);if(!r)return;const p=$("sa_p").value!==""?+$("sa_p").value:r.price;const c=rcost(r)*q,ded=$("sa_ded").checked;if(ded){for(let l of r.lines){const u=l.unit||(it(l.i)?it(l.i).u:'kg');const reqQty=(u==='g')?(l.q/1000)*q:l.q*q;if(reqQty>stock(l.i)){alert(`${t('qty_exceeds_balance')}: ${nm(l.i)}`);return}}r.lines.forEach(l=>{const u=l.unit||(it(l.i)?it(l.i).u:'kg');const reqQty=(u==='g')?(l.q/1000)*q:l.q*q;S.moves.push({i:l.i,d:today(),t:"out",q:-reqQty,r:`بيع: ${r.name}`,b:"Admin"});});}S.sales.push({id:S.seq++,d:today(),rid,rn:r.name,q,p,tot:p*q,cost:c,b:"Admin"});save();go();}
+
+/* ---------- الجرد ---------- */
+function vCount(){return `<div class="card"><h3>${t('actual_count')}</h3><p style="font-size:12px;color:var(--m)">${t('enter_actual_qty')}</p>
+  ${tbl([t('item'),t('category_s'),t('unit'),t('system_balance'),t('actual_qty'),t('difference')],S.items.map(x=>{const st=stock(x.id);return[E(x.name),E(x.c),LANG=="ar"?UN[x.u]:x.u,fx(st),`<input id="cnt_${x.id}" type="number" step="any" placeholder="${fx(st)}" style="width:100px">`,`<span id="cdiff_${x.id}">-</span>`];}))}
+  <div style="margin-top:15px"><button class="b b-ok" onclick="saveCount()">${t('approve_count')}</button> <button class="b" onclick="window.print()">${t('print_count_sheet')}</button></div></div>`;}
+
+function saveCount(){let cnt=0;S.items.forEach(x=>{const el=$(`cnt_${x.id}`);if(!el||el.value==="")return;const act=+el.value,st=stock(x.id),diff=act-st;if(diff!==0){mv(x.id,"adj",diff,TT.adj,today());cnt++}});save();alert(`${t('count_approved')} (${cnt})`);go();}
+
+/* ---------- الموظفين ---------- */
+function vEmp(){const depts=[...new Set(S.employees.map(e=>e.dept).filter(Boolean))];const curMonth=today().slice(0,7);const selectedMonth=$("emp_m_select")?$("emp_m_select").value:curMonth;const selectedDept=$("emp_d_select")?$("emp_d_select").value:"all";let filteredEmps=S.employees;if(selectedDept!=="all")filteredEmps=filteredEmps.filter(e=>e.dept===selectedDept);const empMonthlyTotals={};S.emp_meals.filter(m=>m.d.startsWith(selectedMonth)).forEach(m=>{empMonthlyTotals[m.emp_id]=(empMonthlyTotals[m.emp_id]||0)+m.tot;});return `
+  <div class="card np"><h3>${t('add_emp')}</h3><div class="g">
+    <label>${t('emp_name')}<input id="e_n"></label>
+    <label>${t('emp_dept')}<input id="e_d"></label>
+  </div><button class="b" onclick="addEmp()">${t('add')}</button></div>
+  <div class="card np"><h3>${t('import_emp_excel')}</h3><p style="font-size:12px;color:var(--m)">${t('emp_import_info')}</p>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <input type="file" id="emp_xf" accept=".xlsx,.xls" onchange="importEmpXlsx(this)">
+      <button class="b" onclick="downloadEmpTemplate()">${t('download_emp_template')}</button>
+    </div></div>
+  <div class="card np"><h3>${t('log_meal')}</h3><div class="g">
+    <label>بحث<input id="emp_search" placeholder="${t('search_emp')}" oninput="filterEmpSelect()"></label>
+    <label>${t('select_emp')}<select id="m_emp_id">${optsEmp()}</select></label>
+    <label>${t('meal_date')}<input id="m_emp_d" type="date" value="${today()}"></label>
+    <label>${t('meals_count')}<input id="m_emp_q" type="number" min="1" value="1" oninput="calcMealTot()"></label>
+    <label>${t('price_per_meal')}<input id="m_emp_p" type="number" step="any" value="50" oninput="calcMealTot()"></label>
+    <label>${t('total_deduction')}<input id="m_emp_tot" type="number" readonly value="50"></label>
+    <label>${t('note')}<input id="m_emp_n"></label>
+  </div><button class="b b-ok" onclick="logEmpMeal()">${t('save_meal_log')}</button></div>
+  <div class="card"><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:15px">
+    <h3 style="margin:0">${t('meals_deductions')}</h3>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <label style="flex-direction:row;align-items:center;gap:6px">${t('select_month')}:<input id="emp_m_select" type="month" value="${selectedMonth}" onchange="go()"></label>
+      <label style="flex-direction:row;align-items:center;gap:6px">${t('emp_dept_filter')}:<select id="emp_d_select" onchange="go()"><option value="all">${t('all_depts')}</option>${depts.map(d=>`<option value="${E(d)}" ${selectedDept===d?"selected":""}>${E(d)}</option>`).join("")}</select></label>
+      <button class="b" onclick="exportEmpReport('${selectedMonth}')">${t('export_excel')}</button>
+    </div></div>
+    ${tbl([t('emp_name'),t('emp_dept'),`${t('emp_monthly_total')} (${selectedMonth})`,t('action')],filteredEmps.map(e=>[E(e.name),E(e.dept||"-"),`<b>${$f(empMonthlyTotals[e.id]||0)}</b>`,`<button class="b" onclick="quickLogMeal(${e.id})">${t('log_meal_btn')}</button> <button class="r" onclick="delEmp(${e.id})">${t('delete')}</button>`]))}
+  </div>
+  <div class="card"><h3>${t('recent_deductions')}</h3>
+    ${tbl([t('payment_date'),t('emp_name'),t('emp_dept'),t('meals_count'),t('price_per_meal'),t('total_deduction'),t('note'),t('user'),t('action')],S.emp_meals.slice(-20).reverse().map(m=>{const emp=S.employees.find(e=>e.id==m.emp_id)||{};return[m.d,E(emp.name||"-"),E(emp.dept||"-"),m.q,$f(m.p),`<b>${$f(m.tot)}</b>`,E(m.n||"-"),E(m.b||"-"),`<button class="r" onclick="delEmpMeal(${m.id})">${t('delete')}</button>`];}))}
+  </div>`;}
+
+function optsEmp(){return S.employees.map(e=>`<option value="${e.id}">${E(e.name)} ${e.dept?`(${E(e.dept)})`:""}</option>`).join("");}
+function filterEmpSelect(){const q=$("emp_search").value.toLowerCase().trim();const sel=$("m_emp_id");const filtered=S.employees.filter(e=>e.name.toLowerCase().includes(q)||(e.dept&&e.dept.toLowerCase().includes(q)));sel.innerHTML=filtered.map(e=>`<option value="${e.id}">${E(e.name)} ${e.dept?`(${E(e.dept)})`:""}</option>`).join("");}
+function calcMealTot(){const q=+$("m_emp_q").value||0,p=+$("m_emp_p").value||0;$("m_emp_tot").value=q*p;}
+function addEmp(){const name=$("e_n").value.trim(),dept=$("e_d").value.trim();if(!name){alert(t('enter_item_name'));return}if(S.employees.some(e=>e.name.toLowerCase()===name.toLowerCase())){alert(t('emp_exists'));return}S.employees.push({id:S.seq++,name,dept});save();go();}
+function delEmp(id){if(S.emp_meals.some(m=>m.emp_id==id)){if(!confirm(t('confirm_delete')))return}S.employees=S.employees.filter(e=>e.id!=id);S.emp_meals=S.emp_meals.filter(m=>m.emp_id!=id);save();go();}
+function logEmpMeal(){const emp_id=+$("m_emp_id").value,d=$("m_emp_d").value,q=+$("m_emp_q").value,p=+$("m_emp_p").value,tot=+$("m_emp_tot").value,n=$("m_emp_n").value.trim();if(!emp_id||!(q>0)){alert(t('enter_valid_qty'));return}S.emp_meals.push({id:S.seq++,emp_id,d,q,p,tot,n,b:"Admin"});save();go();}
+function quickLogMeal(emp_id){const emp=S.employees.find(e=>e.id==emp_id);if(!emp)return;const q=prompt(`${t('log_meal_for')} ${emp.name}:\n${t('meals_count')}`,"1");if(!q||!(+q>0))return;const p=prompt(t('price_per_meal'),"50");if(!p||!(+p>=0))return;S.emp_meals.push({id:S.seq++,emp_id,d:today(),q:+q,p:+p,tot:(+q)*(+p),n:"",b:"Admin"});save();go();}
+function delEmpMeal(id){if(confirm(t('confirm_delete'))){S.emp_meals=S.emp_meals.filter(m=>m.id!=id);save();go();}}
+function importEmpXlsx(input){const file=input.files[0];if(!file)return;const reader=new FileReader();reader.onload=e=>{try{const data=new Uint8Array(e.target.result);const wb=XLSX.read(data,{type:'array'});const ws=wb.Sheets[wb.SheetNames[0]];const rows=XLSX.utils.sheet_to_json(ws,{header:1});let imported=0;for(let i=1;i<rows.length;i++){const r=rows[i];if(!r||!r[0])continue;const name=String(r[0]).trim(),dept=r[1]?String(r[1]).trim():"";if(name&&!S.employees.some(e=>e.name.toLowerCase()===name.toLowerCase())){S.employees.push({id:S.seq++,name,dept});imported++;}}save();alert(`${t('emp_imported')} ${imported} ${t('emp_new')}`);go();}catch(err){alert("Error: "+err.message)}};reader.readAsArrayBuffer(file);}
+function downloadEmpTemplate(){const data=[["اسم الموظف","الإدارة / القسم"],["أحمد محمد","المطبخ"],["سارة علي","الصيانة"]];const ws=XLSX.utils.aoa_to_sheet(data);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"Employees");XLSX.writeFile(wb,"employees_template.xlsx");}
+function exportEmpReport(month){const filteredMeals=S.emp_meals.filter(m=>m.d.startsWith(month));const rows=[["التاريخ","اسم الموظف","الإدارة","عدد الوجبات","سعر الوجبة","إجمالي الخصم","ملاحظات","المستخدم"]];filteredMeals.forEach(m=>{const emp=S.employees.find(e=>e.id==m.emp_id)||{};rows.push([m.d,emp.name||"",emp.dept||"",m.q,m.p,m.tot,m.n||"",m.b||""]);});const ws=XLSX.utils.aoa_to_sheet(rows);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"Meal_Deductions");XLSX.writeFile(wb,`meal_deductions_${month}.xlsx`);}
+
+/* ---------- التقارير ---------- */
+function vRep(){return `<div class="card np"><h3>${t('report_type')}</h3><div class="g">
+  <label>${t('report_type')}<select id="r_t" onchange="rt=this.value;go()">
+    <option value="items">${t('rep_items')}</option>
+    <option value="in">${t('rep_in')}</option>
+    <option value="out">${t('rep_out')}</option>
+    <option value="sales">${t('rep_sales')}</option>
+    <option value="sup">${t('rep_sup')}</option>
+    <option value="menu">${t('rep_menu')}</option>
+    <option value="emp">${t('rep_emp')}</option>
+    <option value="count">${t('rep_count')}</option>
+  </select></label>
+  <label>${t('from_date')}<input id="r_f" type="date" value="${rf}" onchange="rf=this.value"></label>
+  <label>${t('to_date')}<input id="r_to" type="date" value="${rto}" onchange="rto=this.value"></label></div>
+  <button class="b" onclick="go()">${t('generate_report')}</button> <button class="b" onclick="window.print()">${t('print')}</button></div>
+  <div class="card">${genRep()}</div>`;}
+
+function genRep(){
+  const filterDate=(arr)=>{let res=[...arr];if(rf)res=res.filter(x=>x.d>=rf);if(rto)res=res.filter(x=>x.d<=rto);return res;};
+  if(rt=="items")return tbl([t('item'),t('category_s'),t('unit'),t('balance'),t('avg_price'),t('balance_value'),t('min_limit_s')],S.items.map(x=>{const st=stock(x.id),c=cost(x.id);return[E(x.name),E(x.c),LANG=="ar"?UN[x.u]:x.u,fx(st),$f(c),$f(st*c),x.m||0]}));
+  if(rt=="in"){const list=filterDate(S.moves.filter(m=>m.t=="in"));return tbl([t('supply_date'),t('item'),t('qty'),t('unit_price_s'),t('total'),t('supplier'),t('invoice_no')],list.map(m=>[m.d,nm(m.i),fx(m.q),$f(m.p),$f(m.q*m.p),E((S.sup.find(s=>s.id==m.sid)||{}).n||"-"),E(m.inv||"-")]));}
+  if(rt=="out"){const list=filterDate(S.moves.filter(m=>m.t=="out"));return tbl([t('payment_date'),t('item'),t('qty'),t('receiving_party'),t('note'),t('user')],list.map(m=>[m.d,nm(m.i),fx(Math.abs(m.q)),E(m.r||"-"),E(m.n||"-"),E(m.b||"-")]));}
+  if(rt=="sales"){const list=filterDate(S.sales);const rev=list.reduce((a,s)=>a+s.tot,0),cst=list.reduce((a,s)=>a+s.cost,0);return `<p><b>${t('revenue')}: ${$f(rev)} | ${t('cost')}: ${$f(cst)} | ${t('net')}: <span style="color:${clr(rev-cst)}">${$f(rev-cst)}</span></b></p>`+tbl([t('payment_date'),t('dish'),t('qty_s'),t('meal_price'),t('total'),t('cost'),t('net')],list.map(s=>[s.d,E(s.rn),s.q,$f(s.p),$f(s.tot),$f(s.cost),`<b style="color:${clr(s.tot-s.cost)}">${$f(s.tot-s.cost)}</b>`]));}
+  if(rt=="sup")return tbl([t('supplier_name'),t('total_purchases'),t('paid'),t('due')],S.sup.map(s=>{const pur=S.moves.filter(m=>m.t=="in"&&m.sid==s.id).reduce((a,m)=>a+m.q*m.p,0);const pd=S.pay.filter(p=>p.sid==s.id).reduce((a,p)=>a+p.a,0);return[E(s.n),$f(pur),$f(pd),`<b style="color:${clr(pd-pur)}">${$f(pur-pd)}</b>`];}));
+  if(rt=="menu"){const menuDates=Object.keys(S.menu).sort();const filteredDates=menuDates.filter(d=>(!rf||d>=rf)&&(!rto||d<=rto));let rows=[],totalCost=0,totalRev=0;filteredDates.forEach(d=>{S.menu[d].forEach(m=>{const r=S.recipes.find(x=>x.id==m.rid);if(!r)return;const c=rcost(r)*m.q;const rev=r.price*m.q;totalCost+=c;totalRev+=rev;rows.push([d,E(r.name),m.q,$f(rcost(r)),$f(c),$f(rev),`<b style="color:${clr(rev-c)}">${$f(rev-c)}</b>`]);});});return `<p><b>${t('expected_cost')}: ${$f(totalCost)} | ${t('expected_revenue')}: ${$f(totalRev)} | ${t('expected_profit')}: <span style="color:${clr(totalRev-totalCost)}">${$f(totalRev-totalCost)}</span></b></p>`+tbl([t('menu_date'),t('dish'),t('portions'),t('portion_cost'),t('cost'),t('revenue'),t('net')],rows);}
+  if(rt=="emp"){const list=filterDate(S.emp_meals);let rows=[],totalDed=0;list.forEach(m=>{const emp=S.employees.find(e=>e.id==m.emp_id)||{};totalDed+=m.tot;rows.push([m.d,E(emp.name||"-"),E(emp.dept||"-"),m.q,$f(m.p),`<b>${$f(m.tot)}</b>`,E(m.n||"-")]);});return `<p><b>${t('total_deduction')}: ${$f(totalDed)}</b></p>`+tbl([t('payment_date'),t('emp_name'),t('emp_dept'),t('meals_count'),t('price_per_meal'),t('total_deduction'),t('note')],rows);}
+  if(rt=="count"){const list=filterDate(S.moves.filter(m=>m.t=="adj"));return tbl([t('payment_date'),t('item'),t('qty'),t('note'),t('user')],list.map(m=>[m.d,nm(m.i),fx(m.q),E(m.n||"-"),E(m.b||"-")]));}
+  return "";
+}
+
+/* ---------- Helpers ---------- */
+function loadCat(){if(!confirm(t('confirm_load_prices')))return;const market=[{n:"طماطم",c:"خضروات",u:"kg",p:5},{n:"بصل",c:"خضروات",u:"kg",p:4},{n:"دجاج",c:"دواجن",u:"kg",p:65},{n:"أرز",c:"بقالة",u:"kg",p:35},{n:"زيت",c:"زيوت",u:"l",p:45}];let added=0,updated=0;market.forEach(m=>{const ex=S.items.find(x=>x.name===m.n);if(ex){ex.p=m.p;updated++}else{S.items.push({id:S.seq++,name:m.n,c:m.c,u:m.u,p:m.p,m:5});added++;}});save();alert(`${t('added')}: ${added}, ${t('updated')}: ${updated}`);go();}
+function xlsxTemplate(){const data=[[t('item_name'),t('category'),t('unit_price'),t('qty_type'),t('min_limit')],["طماطم","خضروات",5,"kg",10],["أرز","بقالة",35,"kg",20]];const ws=XLSX.utils.aoa_to_sheet(data);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"Items");XLSX.writeFile(wb,"items_template.xlsx");}
+function importXlsx(input){const file=input.files[0];if(!file)return;const reader=new FileReader();reader.onload=e=>{try{const data=new Uint8Array(e.target.result);const wb=XLSX.read(data,{type:'array'});const ws=wb.Sheets[wb.SheetNames[0]];const rows=XLSX.utils.sheet_to_json(ws,{header:1});let added=0;for(let i=1;i<rows.length;i++){const r=rows[i];if(!r||!r[0])continue;const name=String(r[0]).trim(),c=String(r[1]||"أخرى").trim(),p=+r[2]||0,u=String(r[3]||"kg").trim(),m=+r[4]||0;if(name&&!S.items.some(x=>x.name.toLowerCase()===name.toLowerCase())){S.items.push({id:S.seq++,name,c,u,p,m});added++;}}save();alert(`${t('added')}: ${added}`);go();}catch(err){alert("Error: "+err.message)}};reader.readAsArrayBuffer(file);}
+
+function go(){const nav=$("nav");nav.innerHTML=TABS.map(([k,label,ar])=>`<button class="${tab==k?'on':''}" onclick="tab='${k}';go()">${LANG=="ar"?label:ar}</button>`).join("");const view=$("view");if(tab=="items")view.innerHTML=vItems();else if(tab=="in")view.innerHTML=vIn();else if(tab=="sup")view.innerHTML=vSup();else if(tab=="out")view.innerHTML=vOut();else if(tab=="menu")view.innerHTML=vMenu();else if(tab=="sales")view.innerHTML=vSales();else if(tab=="emp")view.innerHTML=vEmp();else if(tab=="count")view.innerHTML=vCount();else if(tab=="rep")view.innerHTML=vRep();}
+
+// ========== تشغيل النظام السحابي ==========
+db.collection('kitchen_data').doc('main').onSnapshot((doc) => {
+  if (doc.exists) {
+    const cloudData = doc.data();
+    S = {
+      items: cloudData.items || [],
+      moves: cloudData.moves || [],
+      recipes: cloudData.recipes || [],
+      employees: cloudData.employees || [],
+      emp_meals: cloudData.emp_meals || [],
+      sales: cloudData.sales || [],
+      sup: cloudData.sup || [],
+      pay: cloudData.pay || [],
+      menu: cloudData.menu || {},
+      done: cloudData.done || {},
+      seq: cloudData.seq || 1,
+      cm: cloudData.cm || "avg",
+      cats: cloudData.cats || defaultS.cats
+    };
+    try { localStorage.setItem(K, JSON.stringify(S)); } catch(e){}
+    $("loading").style.display = "none";
+    $("app").style.display = "block";
+    applyLang();
+    go();
+  } else {
+    S = JSON.parse(JSON.stringify(defaultS));
+    save();
+  }
+}, (error) => {
+  console.error("Firestore error:", error);
+  $("loading").innerHTML = "❌ خطأ في الاتصال: " + error.message;
+});
+</script>
+</body>
+</html>
