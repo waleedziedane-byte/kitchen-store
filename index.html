@@ -6,39 +6,37 @@
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <style>
-*{box-sizing:border-box;margin:0;padding:0}body{background:#1e3a8a;font-family:'Cairo',sans-serif;display:flex;justify-content:center;align-items:center;min-height:100vh}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#1e3a8a;font-family:'Cairo',sans-serif;display:flex;justify-content:center;align-items:center;min-height:100vh}
 .lb{background:#fff;padding:40px;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.3);width:90%;max-width:400px;text-align:center}
 .ll{width:80px;height:80px;margin:0 auto 15px;background:#1e3a8a;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:24px;font-weight:bold}
-.lb h2{color:#1e3a8a;margin:10px 0 5px}.un{color:#64748b;font-size:12px;margin-bottom:20px}
+.lb h2{color:#1e3a8a;margin:10px 0 5px}
+.un{color:#64748b;font-size:12px;margin-bottom:20px}
 .lb input{width:100%;padding:14px;border:1px solid #e2e8f0;border-radius:8px;font-size:14px;margin:8px 0;font-family:inherit}
 .lb .b{width:100%;padding:16px;background:#1e3a8a;color:#fff;border:none;border-radius:8px;font-size:16px;font-weight:700;cursor:pointer;margin-top:15px;font-family:inherit}
 .lb .b:disabled{background:#94a3b8;cursor:not-allowed}
 .le{background:#fee2e2;color:#991b1b;padding:12px;border-radius:8px;margin-bottom:15px;font-size:13px;display:none}
-.sw{margin-top:15px;color:#64748b;font-size:13px}.sw a{color:#2563eb;cursor:pointer}
+.sw{margin-top:15px;color:#64748b;font-size:13px}
+.sw a{color:#2563eb;cursor:pointer}
 #ap{display:none;background:#f8fafc;min-height:100vh}
 header{background:#1e3a8a;color:#fff;padding:15px;display:flex;justify-content:space-between;align-items:center}
 header button{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);color:#fff;border-radius:6px;padding:6px 12px;cursor:pointer;font-family:inherit}
-nav{display:flex;gap:6px;padding:10px 15px;background:#fff;border-bottom:1px solid #e2e8f0;overflow-x:auto}
-nav button{white-space:nowrap;background:none;border:1px solid #e2e8f0;color:#1e293b;border-radius:20px;padding:8px 14px;cursor:pointer;font:inherit;font-weight:600}
-nav button.on{background:#1e3a8a;color:#fff}
 main{padding:20px;max-width:1200px;margin:0 auto}
 .cd{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:20px;margin-bottom:15px}
-.cd h3{margin:0 0 12px;color:#1e3a8a}
 </style>
 </head>
 <body>
 <div id="ls"><div class="lb"><div class="ll">UEC</div><h2>نظام مخزن المطبخ</h2><div class="un">University of East Capital - جامعة شرق العاصمة</div><div class="le" id="le"></div><input id="em" type="email" placeholder="البريد الإلكتروني"><input id="pw" type="password" placeholder="كلمة المرور"><button class="b" id="lb" onclick="dl()">تسجيل الدخول</button><div class="sw"><span id="st">ليس لديك حساب؟</span> <a id="sl" onclick="tl()">إنشاء حساب جديد</a></div></div></div>
-<div id="ap"><header><div><strong>نظام مخزن المطبخ - UEC</strong></div><div><span id="wh"></span> <button onclick="lo()">خروج</button></div></header><nav id="nv"></nav><main id="vw"><div class="cd"><h3>مرحباً بك!</h3><p>تم تسجيل الدخول بنجاح.</p></div></main></div>
+<div id="ap"><header><div><strong>نظام مخزن المطبخ - UEC</strong></div><div><span id="wh"></span> <button onclick="lo()">خروج</button></div></header><main><div class="cd"><h3>مرحباً بك في النظام!</h3><p>تم تسجيل الدخول بنجاح. النظام يعمل الآن.</p></div></main></div>
 <script>
 var fc={apiKey:"AIzaSyD5-ni_6VEyWYYmT72UeCckD8gVHYGq5WY",authDomain:"kitchenstore-6d1ce.firebaseapp.com",projectId:"kitchenstore-6d1ce"};
-firebase.initializeApp(fc);var au=firebase.auth(),db=firebase.firestore(),$=function(i){return document.getElementById(i);};
-var lm="lg",cu=null;
+firebase.initializeApp(fc);
+var au=firebase.auth();
+var $=function(i){return document.getElementById(i);};
+var lm="lg";
 function tl(){lm=lm==="lg"?"rg":"lg";$('lb').textContent=lm==="lg"?"تسجيل الدخول":"إنشاء حساب";$('st').textContent=lm==="lg"?"ليس لديك حساب؟":"لديك حساب بالفعل؟";$('sl').textContent=lm==="lg"?"إنشاء حساب جديد":"تسجيل الدخول";$('le').style.display="none";}
-function dl(){var e=$('em').value.trim(),p=$('pw').value;if(!e||!p){$('le').textContent="أدخل البريد وكلمة المرور";$('le').style.display="block";return;}$('lb').disabled=true;$('lb').textContent="جاري...";$('le').style.display="none";
-if(lm==="lg"){au.signInWithEmailAndPassword(e,p).then(function(c){cu={e:e,n:e.split('@')[0],r:'ad'};$('ls').style.display="none";$('ap').style.display="block";$('wh').textContent="مرحباً "+cu.n;}).catch(function(x){var er={'auth/user-not-found':'البريد غير مسجل','auth/wrong-password':'كلمة المرور خاطئة','auth/invalid-email':'بريد غير صحيح'};$('le').textContent=er[x.code]||x.message;$('le').style.display="block";$('lb').disabled=false;$('lb').textContent="تسجيل الدخول";});}
-else{au.createUserWithEmailAndPassword(e,p).then(function(){alert('تم إنشاء الحساب!');$('lb').disabled=false;$('lb').textContent="تسجيل الدخول";tl();}).catch(function(x){var er={'auth/email-already-in-use':'البريد مستخدم','auth/weak-password':'كلمة المرور ضعيفة (6 أحرف)'};$('le').textContent=er[x.code]||x.message;$('le').style.display="block";$('lb').disabled=false;$('lb').textContent="إنشاء حساب";});}}
+function dl(){var e=$('em').value.trim(),p=$('pw').value;if(!e||!p){$('le').textContent="أدخل البريد وكلمة المرور";$('le').style.display="block";return;}$('lb').disabled=true;$('lb').textContent="جاري...";$('le').style.display="none";if(lm==="lg"){au.signInWithEmailAndPassword(e,p).then(function(c){$('ls').style.display="none";$('ap').style.display="block";$('wh').textContent="مرحباً "+c.user.email;}).catch(function(x){var er={'auth/user-not-found':'البريد غير مسجل','auth/wrong-password':'كلمة المرور خاطئة','auth/invalid-email':'بريد غير صحيح'};$('le').textContent=er[x.code]||x.message;$('le').style.display="block";$('lb').disabled=false;$('lb').textContent="تسجيل الدخول";});}else{au.createUserWithEmailAndPassword(e,p).then(function(){alert('تم إنشاء الحساب!');$('lb').disabled=false;$('lb').textContent="تسجيل الدخول";tl();}).catch(function(x){var er={'auth/email-already-in-use':'البريد مستخدم','auth/weak-password':'كلمة المرور ضعيفة (6 أحرف)'};$('le').textContent=er[x.code]||x.message;$('le').style.display="block";$('lb').disabled=false;$('lb').textContent="إنشاء حساب";});}}
 function lo(){if(confirm("خروج؟")){au.signOut().then(function(){location.reload();});}}
 </script>
 </body>
